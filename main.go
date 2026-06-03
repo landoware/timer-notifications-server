@@ -1,4 +1,4 @@
-package server
+package main
 
 import (
 	"fmt"
@@ -9,20 +9,17 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-var Token string
-
 func main() {
-	discord, err := discordgo.New("Bot" + Token)
-
+	Token := ""
+	discord, err := discordgo.New("Bot " + Token)
 	if err != nil {
 		fmt.Println("Failed to create discord session, ", err)
 		return
 	}
 
-	// Register the messageCreate function as the handler for MessageCreate events
-	discord.AddHandler(messageCreate)
-
 	discord.Identify.Intents = discordgo.IntentsDirectMessages
+
+	discord.AddHandler(onboard)
 
 	err = discord.Open()
 	if err != nil {
@@ -40,28 +37,17 @@ func main() {
 	discord.Close()
 }
 
-func messageCreate(s *discordgo.Session, userId string, message string) {
-	channel, err := s.UserChannelCreate(userId)
+func onboard(s *discordgo.Session, e *discordgo.IntegrationCreate) {
+	fmt.Println("IntegrationCreate")
+	channel, err := s.UserChannelCreate(e.ID)
 	if err != nil {
-		// If an error occurred, we failed to create the channel.
-		//
-		// Some common causes are:
-		// 1. We don't share a server with the user (not possible here).
-		// 2. We opened enough DM channels quickly enough for Discord to
-		//    label us as abusing the endpoint, blocking us from opening
-		//    new ones.
 		fmt.Println("error creating channel:", err)
 		return
 	}
 
-	// Send it
-	_, err = s.ChannelMessageSend(channel.ID, message)
+	// Send the plugin setup message
+	_, err = s.ChannelMessageSend(channel.ID, "Put this in the Discord ID field of the plugin: `"+e.ID+"`")
 	if err != nil {
-		// If an error occurred, we failed to send the message.
-		//
-		// It may occur either when we do not share a server with the
-		// user (highly unlikely as we just received a message) or
-		// the user disabled DM in their settings (more likely).
 		fmt.Println("error sending DM message:", err)
 	}
 }
