@@ -49,6 +49,8 @@ type NotificationRequest struct {
 	UserID          string    `json:"userId"`
 	CropGroup       CropGroup `json:"cropGroup,omitempty"`
 	NotifyInMinutes int       `json:"notifyInMinutes"`
+	CropName        string    `json:"-"`
+	CropValue       string    `json:"crop,omitempty"`
 }
 
 type NotificationResponse struct {

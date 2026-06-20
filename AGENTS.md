@@ -17,7 +17,9 @@
 - `main.go`: also registers one slash command per crop group; groups with mixed grow times require a `crop` choice option, while uniform-duration groups allow it to be omitted.
 - `api.go`: all HTTP routing and request validation.
 - `crops.go`: crop names and grow durations used by Discord slash commands.
+- `crops.go`: crop names, grow durations, and OSRS Wiki titles used by Discord slash commands and notification cards.
 - `scheduler.go`: in-memory timers keyed by `userId:cropGroup`; notifications are lost on restart.
+- `wiki.go`: OSRS Wiki thumbnail lookup and in-memory caching for Discord embeds.
 - `types.go`: crop-group enum and API request/response types.
 
 ## Verified commands
@@ -34,7 +36,7 @@
 - Discord crop slash commands also upsert by calling `Scheduler.Reschedule`, and they only allow scheduling from a DM channel.
 - Slash-command grow times are hardcoded from OSRS Wiki data in `crops.go`; update those mappings when crop support changes.
 - Error responses intentionally include `allowedCropGroups` from `types.go`; keep that contract in sync if crop groups change.
-- The Discord DM text is currently generated in `scheduler.go` at send time; there is no persisted job payload beyond user ID, crop group, and trigger time.
+- The Discord ready DM is generated in `scheduler.go` as an embed at send time; slash-command schedules also remember the exact crop so mixed-duration groups can render crop-specific text and thumbnails.
 
 ## Workflow notes
 

@@ -205,6 +205,8 @@ func handleCropCommand(s *discordgo.Session, i *discordgo.InteractionCreate, sch
 		UserID:          userID,
 		CropGroup:       cropGroup,
 		NotifyInMinutes: minutes,
+		CropName:        crop.Name,
+		CropValue:       crop.Value,
 	})
 	if err != nil {
 		log.Printf("error scheduling notification from slash command: %v", err)

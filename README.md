@@ -10,6 +10,7 @@ This server runs the Discord bot for the RuneLite plugin and exposes HTTP endpoi
 - For groups where every supported crop shares the same grow time, the crop argument is optional. Example: `/herb` and `/herb crop:irit` both schedule an 80-minute notification.
 - Grow times for slash commands are stored server-side from OSRS Wiki patch pages, so users do not type durations manually.
 - If `COMMAND_GUILD_ID` is set, the same commands are also registered in that guild for immediate testing.
+- Ready notifications are sent as Discord embeds with the message `Your {crop} is ready to harvest` and an OSRS Wiki thumbnail when one is available.
 
 ## Environment
 
@@ -138,6 +139,7 @@ Behavior:
 - `notifyInMinutes` is a positive integer.
 - Notifications are stored in memory and are lost on restart.
 - The server trusts the `userId` provided by the plugin for now.
+- Slash-command schedules store the exact crop so mixed groups like allotments can render crop-specific notification cards.
 
 ## Next Steps
 

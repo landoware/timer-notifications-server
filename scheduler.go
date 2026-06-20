@@ -16,6 +16,8 @@ var ErrNotificationNotFound = errors.New("notification not found")
 type scheduledNotification struct {
 	userID    string
 	cropGroup CropGroup
+	cropName  string
+	cropValue string
 	notifyAt  time.Time
 	timer     *time.Timer
 }
@@ -23,12 +25,14 @@ type scheduledNotification struct {
 type Scheduler struct {
 	mu            sync.RWMutex
 	discord       *discordgo.Session
+	thumbnails    *wikiThumbnailService
 	notifications map[string]*scheduledNotification
 }
 
 func NewScheduler(discord *discordgo.Session) *Scheduler {
 	return &Scheduler{
 		discord:       discord,
+		thumbnails:    newWikiThumbnailService(),
 		notifications: make(map[string]*scheduledNotification),
 	}
 }
@@ -103,6 +107,8 @@ func (s *Scheduler) scheduleLocked(req NotificationRequest, status string) Notif
 	notification := &scheduledNotification{
 		userID:    req.UserID,
 		cropGroup: req.CropGroup,
+		cropName:  req.CropName,
+		cropValue: req.CropValue,
 		notifyAt:  notifyAt,
 	}
 
@@ -130,23 +136,45 @@ func (s *Scheduler) fire(key string, userID string, cropGroup CropGroup, notifyA
 	delete(s.notifications, key)
 	s.mu.Unlock()
 
-	if err := s.sendHarvestReadyDM(userID, cropGroup); err != nil {
+	if err := s.sendHarvestReadyDM(notification); err != nil {
 		log.Printf("failed sending notification to user %s for %s: %v", userID, cropGroup, err)
 	}
 }
 
-func (s *Scheduler) sendHarvestReadyDM(userID string, cropGroup CropGroup) error {
-	channel, err := s.discord.UserChannelCreate(userID)
+func (s *Scheduler) sendHarvestReadyDM(notification *scheduledNotification) error {
+	channel, err := s.discord.UserChannelCreate(notification.userID)
 	if err != nil {
 		return fmt.Errorf("create DM channel: %w", err)
 	}
 
-	message := fmt.Sprintf("Your %s patches should be ready to harvest.", cropGroup)
-	if _, err := s.discord.ChannelMessageSend(channel.ID, message); err != nil {
-		return fmt.Errorf("send DM: %w", err)
+	embed := &discordgo.MessageEmbed{
+		Title:       "Harvest Ready",
+		Description: fmt.Sprintf("Your %s is ready to harvest", notification.displayCropName()),
+		Color:       0x4CAF50,
+	}
+
+	if crop, ok := cropForGroup(notification.cropGroup, notification.cropValue); ok {
+		thumbnailURL, err := s.thumbnails.ThumbnailURL(crop)
+		if err != nil {
+			log.Printf("failed to fetch wiki thumbnail for %s: %v", crop.Name, err)
+		} else if thumbnailURL != "" {
+			embed.Thumbnail = &discordgo.MessageEmbedThumbnail{URL: thumbnailURL}
+		}
+	}
+
+	if _, err := s.discord.ChannelMessageSendEmbed(channel.ID, embed); err != nil {
+		return fmt.Errorf("send embed DM: %w", err)
 	}
 
 	return nil
+}
+
+func (n *scheduledNotification) displayCropName() string {
+	if n.cropName != "" {
+		return n.cropName
+	}
+
+	return n.cropGroup.DisplayName()
 }
 
 func notificationKey(userID string, cropGroup CropGroup) string {
