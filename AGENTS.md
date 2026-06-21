@@ -24,6 +24,7 @@
 
 ## Verified commands
 
+- Dev server with hot reload: `air`
 - Format: `gofmt -w "main.go" "api.go" "scheduler.go" "types.go" "crops.go"`
 - Build: `go build ./...`
 - Focused build without polluting repo root: `go build -o "/tmp/opencode/osrs-notifier-server" ./...`
