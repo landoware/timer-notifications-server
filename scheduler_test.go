@@ -5,6 +5,16 @@ import (
 	"time"
 )
 
+func newTestStore(t *testing.T) *store {
+	t.Helper()
+	s, err := newStore(":memory:")
+	if err != nil {
+		t.Fatalf("newStore(:memory:) error = %v", err)
+	}
+	t.Cleanup(func() { s.Close() })
+	return s
+}
+
 func notificationRequest(overrides ...func(*NotificationRequest)) NotificationRequest {
 	req := NotificationRequest{
 		UserID:          "testuser",
@@ -39,7 +49,7 @@ func TestNotificationKey(t *testing.T) {
 }
 
 func TestSchedulerSchedule_CreatesNotification(t *testing.T) {
-	s := NewScheduler(nil)
+	s := NewScheduler(nil, newTestStore(t))
 	req := notificationRequest()
 
 	resp, err := s.Schedule(req)
@@ -68,7 +78,7 @@ func TestSchedulerSchedule_CreatesNotification(t *testing.T) {
 }
 
 func TestSchedulerSchedule_DuplicateReturnsError(t *testing.T) {
-	s := NewScheduler(nil)
+	s := NewScheduler(nil, newTestStore(t))
 	req := notificationRequest()
 
 	if _, err := s.Schedule(req); err != nil {
@@ -82,7 +92,7 @@ func TestSchedulerSchedule_DuplicateReturnsError(t *testing.T) {
 }
 
 func TestSchedulerSchedule_DifferentUsersNoConflict(t *testing.T) {
-	s := NewScheduler(nil)
+	s := NewScheduler(nil, newTestStore(t))
 	req1 := notificationRequest(func(r *NotificationRequest) { r.UserID = "user1" })
 	req2 := notificationRequest(func(r *NotificationRequest) { r.UserID = "user2" })
 
@@ -95,7 +105,7 @@ func TestSchedulerSchedule_DifferentUsersNoConflict(t *testing.T) {
 }
 
 func TestSchedulerSchedule_DifferentGroupsNoConflict(t *testing.T) {
-	s := NewScheduler(nil)
+	s := NewScheduler(nil, newTestStore(t))
 	req1 := notificationRequest(func(r *NotificationRequest) { r.CropGroup = CropGroupHerb })
 	req2 := notificationRequest(func(r *NotificationRequest) { r.CropGroup = CropGroupTree })
 
@@ -108,7 +118,7 @@ func TestSchedulerSchedule_DifferentGroupsNoConflict(t *testing.T) {
 }
 
 func TestSchedulerReschedule_CreatesWhenNotExists(t *testing.T) {
-	s := NewScheduler(nil)
+	s := NewScheduler(nil, newTestStore(t))
 	req := notificationRequest()
 
 	resp, err := s.Reschedule(req)
@@ -121,7 +131,7 @@ func TestSchedulerReschedule_CreatesWhenNotExists(t *testing.T) {
 }
 
 func TestSchedulerReschedule_ReschedulesWhenExists(t *testing.T) {
-	s := NewScheduler(nil)
+	s := NewScheduler(nil, newTestStore(t))
 	req1 := notificationRequest(func(r *NotificationRequest) { r.NotifyInMinutes = 100000 })
 	req2 := notificationRequest(func(r *NotificationRequest) { r.NotifyInMinutes = 200000 })
 
@@ -140,7 +150,7 @@ func TestSchedulerReschedule_ReschedulesWhenExists(t *testing.T) {
 }
 
 func TestSchedulerReschedule_DifferentUsersNotConfused(t *testing.T) {
-	s := NewScheduler(nil)
+	s := NewScheduler(nil, newTestStore(t))
 	req1 := notificationRequest(func(r *NotificationRequest) { r.UserID = "user1"; r.NotifyInMinutes = 100 })
 	req2 := notificationRequest(func(r *NotificationRequest) { r.UserID = "user2"; r.NotifyInMinutes = 200 })
 
@@ -152,7 +162,7 @@ func TestSchedulerReschedule_DifferentUsersNotConfused(t *testing.T) {
 }
 
 func TestSchedulerGet_Found(t *testing.T) {
-	s := NewScheduler(nil)
+	s := NewScheduler(nil, newTestStore(t))
 	req := notificationRequest()
 
 	s.Schedule(req)
@@ -166,7 +176,7 @@ func TestSchedulerGet_Found(t *testing.T) {
 }
 
 func TestSchedulerGet_NotFound(t *testing.T) {
-	s := NewScheduler(nil)
+	s := NewScheduler(nil, newTestStore(t))
 
 	_, err := s.Get("testuser", CropGroupHerb)
 	if err != ErrNotificationNotFound {
@@ -175,7 +185,7 @@ func TestSchedulerGet_NotFound(t *testing.T) {
 }
 
 func TestSchedulerGet_AfterCancelReturnsNotFound(t *testing.T) {
-	s := NewScheduler(nil)
+	s := NewScheduler(nil, newTestStore(t))
 	req := notificationRequest()
 
 	s.Schedule(req)
@@ -188,7 +198,7 @@ func TestSchedulerGet_AfterCancelReturnsNotFound(t *testing.T) {
 }
 
 func TestSchedulerCancel_Found(t *testing.T) {
-	s := NewScheduler(nil)
+	s := NewScheduler(nil, newTestStore(t))
 	req := notificationRequest()
 
 	s.Schedule(req)
@@ -199,7 +209,7 @@ func TestSchedulerCancel_Found(t *testing.T) {
 }
 
 func TestSchedulerCancel_NotFound(t *testing.T) {
-	s := NewScheduler(nil)
+	s := NewScheduler(nil, newTestStore(t))
 
 	err := s.Cancel("testuser", CropGroupHerb)
 	if err != ErrNotificationNotFound {
@@ -208,7 +218,7 @@ func TestSchedulerCancel_NotFound(t *testing.T) {
 }
 
 func TestSchedulerSchedule_EmptyCropValueFillsDefault(t *testing.T) {
-	s := NewScheduler(nil)
+	s := NewScheduler(nil, newTestStore(t))
 	req := NotificationRequest{
 		UserID:          "testuser",
 		CropGroup:       CropGroupHerb,
@@ -232,7 +242,7 @@ func TestSchedulerSchedule_EmptyCropValueFillsDefault(t *testing.T) {
 }
 
 func TestSchedulerReschedule_EmptyCropValueFillsDefault(t *testing.T) {
-	s := NewScheduler(nil)
+	s := NewScheduler(nil, newTestStore(t))
 	req := NotificationRequest{
 		UserID:          "testuser",
 		CropGroup:       CropGroupTree,
@@ -256,7 +266,7 @@ func TestSchedulerReschedule_EmptyCropValueFillsDefault(t *testing.T) {
 }
 
 func TestSchedulerSchedule_StopsPreviousTimerOnReschedule(t *testing.T) {
-	s := NewScheduler(nil)
+	s := NewScheduler(nil, newTestStore(t))
 	req1 := notificationRequest(func(r *NotificationRequest) { r.NotifyInMinutes = 100000 })
 
 	s.Schedule(req1)
@@ -297,7 +307,7 @@ func TestSchedulerDisplayCropName(t *testing.T) {
 }
 
 func TestSchedulerBuildHarvestEmbed(t *testing.T) {
-	s := NewScheduler(nil)
+	s := NewScheduler(nil, newTestStore(t))
 
 	notif := &scheduledNotification{
 		userID:    "testuser",
@@ -310,8 +320,8 @@ func TestSchedulerBuildHarvestEmbed(t *testing.T) {
 	if embed == nil {
 		t.Fatal("buildHarvestEmbed() returned nil")
 	}
-	if embed.Title != "Harvest Ready" {
-		t.Errorf("Title = %q, want %q", embed.Title, "Harvest Ready")
+	if embed.Title != "Herbs ready" {
+		t.Errorf("Title = %q, want %q", embed.Title, "Herbs ready")
 	}
 	if embed.Description != "Your Ranarr is ready to harvest" {
 		t.Errorf("Description = %q, want %q", embed.Description, "Your Ranarr is ready to harvest")
@@ -322,7 +332,7 @@ func TestSchedulerBuildHarvestEmbed(t *testing.T) {
 }
 
 func TestSchedulerBuildHarvestEmbed_WithPatches(t *testing.T) {
-	s := NewScheduler(nil)
+	s := NewScheduler(nil, newTestStore(t))
 
 	notif := &scheduledNotification{
 		userID:    "testuser",
@@ -337,8 +347,8 @@ func TestSchedulerBuildHarvestEmbed_WithPatches(t *testing.T) {
 	if embed == nil {
 		t.Fatal("buildHarvestEmbed() returned nil")
 	}
-	if embed.Title != "Harvest Ready" {
-		t.Errorf("Title = %q, want %q", embed.Title, "Harvest Ready")
+	if embed.Title != "Herbs ready" {
+		t.Errorf("Title = %q, want %q", embed.Title, "Herbs ready")
 	}
 	want := "Your herbs are ready:\n- Ranarr at Farming Guild\n- Irit at Falador"
 	if embed.Description != want {
@@ -350,7 +360,7 @@ func TestSchedulerBuildHarvestEmbed_WithPatches(t *testing.T) {
 }
 
 func TestSchedulerBuildHarvestEmbed_EmptyCropValueNotCached(t *testing.T) {
-	s := NewScheduler(nil)
+	s := NewScheduler(nil, newTestStore(t))
 	s.thumbnails.cache["Guam"] = "https://example.com/guam.png"
 
 	notif := &scheduledNotification{

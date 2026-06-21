@@ -14,11 +14,11 @@
 ## Important files
 
 - `main.go`: process startup, graceful shutdown, slash-command registration, button-click handler.
-- `api.go`: HTTP routing (`net/http` ServeMux) and request validation.
-- `crops.go`: crop names, OSRS Wiki titles, and grow durations.
-- `scheduler.go`: in-memory timers keyed by `userId:cropGroup`; notifications are lost on restart.
+- `api.go`: HTTP routing (`net/http` ServeMux) and request validation; validates `gameMode` if provided.
+- `crops.go`: crop names, OSRS Wiki titles, grow durations, and `gameModeDuration()` multiplier.
+- `scheduler.go`: in-memory timers keyed by `userId:cropGroup`; game mode applied at schedule time; notifications lost on restart.
 - `wiki.go`: OSRS Wiki thumbnail lookup with in-memory caching.
-- `types.go`: crop-group enum (23 groups), patch-location enum, API request/response types.
+- `types.go`: crop-group enum (23 groups), patch-location enum, `GameMode` type (standard/leagues/deadman), API request/response types.
 
 ## Commands
 
@@ -31,9 +31,6 @@
 | test single function | `go test -v -run 'TestSchedule' ./...` |
 | format | `gofmt -w .` |
 
-Pre-existing test failure (not caused by stale codegen or fixtures):
-`TestSchedulerReschedule_EmptyCropValueFillsDefault` — expects `cropName == "Oak"` but `crops.go` stores `"Oak Tree"` for the tree default. A fix should change the test expectation or the crop name.
-
 ## Behavior that is easy to guess wrong
 
 - `POST /api/v1/notifications` is create-only → returns `409` if `(userId, cropGroup)` exists.
@@ -44,6 +41,7 @@ Pre-existing test failure (not caused by stale codegen or fixtures):
 - Slash-command grow times are hardcoded in `crops.go` from OSRS Wiki data; update mappings when crop support changes.
 - `testcard` slash command previews the harvest notification embed; it requires a `crop_group` arg, optional `crop`.
 - Button "I replanted" (`custom_id: reschedule:<cropGroup>:<cropValue>`) is handled in `main.go:handleMessageComponent`.
+- `gameMode` field is optional on requests; defaults to `"standard"`. Leagues/deadman worlds divide standard durations by 5. Non-standard game modes appear as `[leagues]` in the Discord embed title.
 - Error responses include `allowedCropGroups`; keep that contract in sync when adding crop groups.
-- Crop choice `required` flag depends on group: required only if group has >1 crop with differing durations (`cropOptionRequired` in `crops.go:172`).
+- Crop choice `required` flag depends on group: required only if group has >1 crop with differing durations (`cropOptionRequired` in `crops.go`).
 - `go build` without `-o` drops `osrs-notifier-server` binary in the repo root; clean it up after verification builds.

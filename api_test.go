@@ -11,8 +11,13 @@ import (
 
 func setupAPI(t *testing.T) (http.Handler, *Scheduler) {
 	t.Helper()
-	s := NewScheduler(nil)
-	return NewAPIHandler(s), s
+	s, err := newStore(":memory:")
+	if err != nil {
+		t.Fatalf("newStore(:memory:) error = %v", err)
+	}
+	t.Cleanup(func() { s.Close() })
+	sched := NewScheduler(nil, s)
+	return NewAPIHandler(sched), sched
 }
 
 func apiRequest(method, path string, body string) *http.Request {

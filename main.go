@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -37,12 +38,27 @@ func main() {
 		port = "8080"
 	}
 
+	dbPath := os.Getenv("DATABASE_PATH")
+	if dbPath == "" {
+		dbPath = "data/notifications.db"
+	}
+
+	if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
+		log.Fatalf("Failed to create data directory: %v", err)
+	}
+
+	store, err := newStore(dbPath)
+	if err != nil {
+		log.Fatalf("Failed to open database: %v", err)
+	}
+	defer store.Close()
+
 	discord, err := discordgo.New("Bot " + token)
 	if err != nil {
 		log.Fatalf("Failed to create Discord session: %v", err)
 	}
 
-	scheduler := NewScheduler(discord)
+	scheduler := NewScheduler(discord, store)
 
 	discord.Identify.Intents = discordgo.IntentsDirectMessages
 	discord.AddHandler(newInteractionHandler(scheduler))
@@ -129,20 +145,26 @@ func applicationCommands() []*discordgo.ApplicationCommand {
 
 		crops := cropsForGroup(cropGroup)
 		if len(crops) > 1 {
-			cropChoices := make([]*discordgo.ApplicationCommandOptionChoice, 0, len(crops))
-			for _, crop := range crops {
-				cropChoices = append(cropChoices, &discordgo.ApplicationCommandOptionChoice{
-					Name:  crop.Name,
-					Value: crop.Value,
-				})
+			desc := "Which crop you just planted."
+			var choices []*discordgo.ApplicationCommandOptionChoice
+			if len(crops) <= 25 {
+				choices = make([]*discordgo.ApplicationCommandOptionChoice, 0, len(crops))
+				for _, crop := range crops {
+					choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
+						Name:  crop.Name,
+						Value: crop.Value,
+					})
+				}
+			} else {
+				desc = "Crop value (e.g. ranarr, snapdragon, maple)"
 			}
 
 			command.Options = []*discordgo.ApplicationCommandOption{{
 				Type:        discordgo.ApplicationCommandOptionString,
 				Name:        "crop",
-				Description: "Which crop you just planted.",
+				Description: desc,
 				Required:    cropOptionRequired(cropGroup),
-				Choices:     cropChoices,
+				Choices:     choices,
 			}}
 		}
 

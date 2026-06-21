@@ -25,7 +25,7 @@ func TestCropsForGroup(t *testing.T) {
 }
 
 func TestCropForGroup(t *testing.T) {
-	t.Run("finds existing crop", func(t *testing.T) {
+	t.Run("finds existing crop by Value", func(t *testing.T) {
 		crop, ok := cropForGroup(CropGroupHerb, "ranarr")
 		if !ok {
 			t.Fatal("expected to find ranarr")
@@ -38,6 +38,26 @@ func TestCropForGroup(t *testing.T) {
 		}
 		if crop.WikiTitle != "Ranarr" {
 			t.Errorf("crop.WikiTitle = %q, want %q", crop.WikiTitle, "Ranarr")
+		}
+	})
+
+	t.Run("finds existing crop by RLName", func(t *testing.T) {
+		crop, ok := cropForGroup(CropGroupHerb, "Ranarr")
+		if !ok {
+			t.Fatal("expected to find Ranarr by RLName")
+		}
+		if crop.Value != "ranarr" {
+			t.Errorf("crop.Value = %q, want %q", crop.Value, "ranarr")
+		}
+	})
+
+	t.Run("finds tree by RLName (Oak)", func(t *testing.T) {
+		crop, ok := cropForGroup(CropGroupTree, "Oak")
+		if !ok {
+			t.Fatal("expected to find Oak by RLName")
+		}
+		if crop.Value != "oak" {
+			t.Errorf("crop.Value = %q, want %q", crop.Value, "oak")
 		}
 	})
 
@@ -136,6 +156,9 @@ func TestCropDurationPrecision(t *testing.T) {
 			}
 			if crop.Value == "" {
 				t.Errorf("%s/%s has empty Value", group, crop.Name)
+			}
+			if crop.RLName == "" {
+				t.Errorf("%s/%s has empty RLName", group, crop.Name)
 			}
 		}
 	}

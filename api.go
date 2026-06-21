@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 )
@@ -19,7 +20,14 @@ func NewAPIHandler(scheduler *Scheduler) http.Handler {
 	mux.HandleFunc("/api/v1/notifications", api.handleNotifications)
 	mux.HandleFunc("/api/v1/notifications/", api.handleNotificationByGroup)
 
-	return mux
+	return withLogging(mux)
+}
+
+func withLogging(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("API %s %s from %s", r.Method, r.URL.Path, r.RemoteAddr)
+		next.ServeHTTP(w, r)
+	})
 }
 
 func (a *apiHandler) handleHealth(w http.ResponseWriter, _ *http.Request) {
@@ -159,6 +167,18 @@ func decodeNotificationRequest(r *http.Request) (NotificationRequest, error) {
 
 	if req.CropGroup != "" {
 		if err := req.CropGroup.Validate(); err != nil {
+			return NotificationRequest{}, err
+		}
+	}
+
+	if req.GameMode != "" {
+		if err := req.GameMode.Validate(); err != nil {
+			return NotificationRequest{}, err
+		}
+	}
+
+	if req.NotifyMode != "" {
+		if err := req.NotifyMode.Validate(); err != nil {
 			return NotificationRequest{}, err
 		}
 	}

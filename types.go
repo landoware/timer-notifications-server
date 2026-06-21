@@ -249,6 +249,10 @@ func ValidPatchLocationsForGroup(group CropGroup) []PatchLocation {
 		return []PatchLocation{
 			PatchLocationCoralNursery,
 		}
+	case CropGroupFarmingContract:
+		return []PatchLocation{
+			PatchLocationFarmingGuild,
+		}
 	default:
 		return nil
 	}
@@ -257,53 +261,97 @@ func ValidPatchLocationsForGroup(group CropGroup) []PatchLocation {
 type CropGroup string
 
 const (
-	CropGroupHerb       CropGroup = "herb"
-	CropGroupTree       CropGroup = "tree"
-	CropGroupFruitTree  CropGroup = "fruit_tree"
-	CropGroupAllotment  CropGroup = "allotment"
-	CropGroupFlower     CropGroup = "flower"
-	CropGroupBush       CropGroup = "bush"
-	CropGroupHops       CropGroup = "hops"
-	CropGroupCactus     CropGroup = "cactus"
-	CropGroupSeaweed    CropGroup = "seaweed"
-	CropGroupMushroom   CropGroup = "mushroom"
-	CropGroupBelladonna CropGroup = "belladonna"
-	CropGroupCalquat    CropGroup = "calquat"
-	CropGroupCelastrus  CropGroup = "celastrus"
-	CropGroupRedwood    CropGroup = "redwood"
-	CropGroupSpiritTree CropGroup = "spirit_tree"
-	CropGroupHespori    CropGroup = "hespori"
-	CropGroupBirdhouse  CropGroup = "birdhouse"
-	CropGroupGrape      CropGroup = "grape"
-	CropGroupAnima      CropGroup = "anima"
-	CropGroupHardwood   CropGroup = "hardwood"
-	CropGroupCrystal    CropGroup = "crystal"
-	CropGroupCoral      CropGroup = "coral"
+	CropGroupHerb            CropGroup = "herb"
+	CropGroupTree            CropGroup = "tree"
+	CropGroupFruitTree       CropGroup = "fruit_tree"
+	CropGroupAllotment       CropGroup = "allotment"
+	CropGroupFlower          CropGroup = "flower"
+	CropGroupBush            CropGroup = "bush"
+	CropGroupHops            CropGroup = "hops"
+	CropGroupCactus          CropGroup = "cactus"
+	CropGroupSeaweed         CropGroup = "seaweed"
+	CropGroupMushroom        CropGroup = "mushroom"
+	CropGroupBelladonna      CropGroup = "belladonna"
+	CropGroupCalquat         CropGroup = "calquat"
+	CropGroupCelastrus       CropGroup = "celastrus"
+	CropGroupRedwood         CropGroup = "redwood"
+	CropGroupSpiritTree      CropGroup = "spirit_tree"
+	CropGroupHespori         CropGroup = "hespori"
+	CropGroupBirdhouse       CropGroup = "birdhouse"
+	CropGroupGrape           CropGroup = "grape"
+	CropGroupAnima           CropGroup = "anima"
+	CropGroupHardwood        CropGroup = "hardwood"
+	CropGroupCrystal         CropGroup = "crystal"
+	CropGroupCoral           CropGroup = "coral"
+	CropGroupFarmingContract CropGroup = "farming_contract"
 )
 
 var validCropGroups = map[CropGroup]struct{}{
-	CropGroupHerb:       {},
-	CropGroupTree:       {},
-	CropGroupFruitTree:  {},
-	CropGroupAllotment:  {},
-	CropGroupFlower:     {},
-	CropGroupBush:       {},
-	CropGroupHops:       {},
-	CropGroupCactus:     {},
-	CropGroupSeaweed:    {},
-	CropGroupMushroom:   {},
-	CropGroupBelladonna: {},
-	CropGroupCalquat:    {},
-	CropGroupCelastrus:  {},
-	CropGroupRedwood:    {},
-	CropGroupSpiritTree: {},
-	CropGroupHespori:    {},
-	CropGroupBirdhouse:  {},
-	CropGroupGrape:      {},
-	CropGroupAnima:      {},
-	CropGroupHardwood:   {},
-	CropGroupCrystal:    {},
-	CropGroupCoral:      {},
+	CropGroupHerb:            {},
+	CropGroupTree:            {},
+	CropGroupFruitTree:       {},
+	CropGroupAllotment:       {},
+	CropGroupFlower:          {},
+	CropGroupBush:            {},
+	CropGroupHops:            {},
+	CropGroupCactus:          {},
+	CropGroupSeaweed:         {},
+	CropGroupMushroom:        {},
+	CropGroupBelladonna:      {},
+	CropGroupCalquat:         {},
+	CropGroupCelastrus:       {},
+	CropGroupRedwood:         {},
+	CropGroupSpiritTree:      {},
+	CropGroupHespori:         {},
+	CropGroupBirdhouse:       {},
+	CropGroupGrape:           {},
+	CropGroupAnima:           {},
+	CropGroupHardwood:        {},
+	CropGroupCrystal:         {},
+	CropGroupCoral:           {},
+	CropGroupFarmingContract: {},
+}
+
+type NotifyMode string
+
+const (
+	NotifyModeFirstReady NotifyMode = "first_ready"
+	NotifyModeAllReady   NotifyMode = "all_ready"
+)
+
+var validNotifyModes = map[NotifyMode]struct{}{
+	NotifyModeFirstReady: {},
+	NotifyModeAllReady:   {},
+}
+
+func (n NotifyMode) Validate() error {
+	if _, ok := validNotifyModes[n]; !ok {
+		return fmt.Errorf("invalid notifyMode %q", n)
+	}
+
+	return nil
+}
+
+type GameMode string
+
+const (
+	GameModeStandard GameMode = "standard"
+	GameModeLeagues  GameMode = "leagues"
+	GameModeDeadman  GameMode = "deadman"
+)
+
+var validGameModes = map[GameMode]struct{}{
+	GameModeStandard: {},
+	GameModeLeagues:  {},
+	GameModeDeadman:  {},
+}
+
+func (g GameMode) Validate() error {
+	if _, ok := validGameModes[g]; !ok {
+		return fmt.Errorf("invalid gameMode %q", g)
+	}
+
+	return nil
 }
 
 type NotificationRequest struct {
@@ -312,6 +360,8 @@ type NotificationRequest struct {
 	NotifyInMinutes int         `json:"notifyInMinutes"`
 	CropName        string      `json:"-"`
 	CropValue       string      `json:"crop,omitempty"`
+	GameMode        GameMode    `json:"gameMode,omitempty"`
+	NotifyMode      NotifyMode  `json:"notifyMode,omitempty"`
 	Patches         []PatchInfo `json:"patches,omitempty"`
 }
 
@@ -320,6 +370,8 @@ type NotificationResponse struct {
 	CropGroup    CropGroup   `json:"cropGroup"`
 	ScheduledFor time.Time   `json:"scheduledFor"`
 	Status       string      `json:"status"`
+	GameMode     GameMode    `json:"gameMode,omitempty"`
+	NotifyMode   NotifyMode  `json:"notifyMode,omitempty"`
 	Patches      []PatchInfo `json:"patches,omitempty"`
 }
 
@@ -379,4 +431,16 @@ func (c CropGroup) DisplayNamePlural() string {
 	}
 
 	return lower + "s"
+}
+
+func (c CropGroup) DisplayNamePluralTitle() string {
+	name := c.DisplayName()
+	lower := strings.ToLower(name)
+	if strings.HasSuffix(lower, "s") {
+		return name
+	}
+	if strings.HasSuffix(lower, "sh") || strings.HasSuffix(lower, "ch") || strings.HasSuffix(lower, "x") || strings.HasSuffix(lower, "z") {
+		return name + "es"
+	}
+	return name + "s"
 }
