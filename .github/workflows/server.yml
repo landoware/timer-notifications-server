@@ -9,7 +9,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/osrs-notifier-server
+  IMAGE_NAME: ${{ github.repository_owner }}/farming-notifications-server
 
 jobs:
   test:

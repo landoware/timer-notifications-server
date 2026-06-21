@@ -4,11 +4,11 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 go build -o /out/osrs-notifier-server ./...
+RUN CGO_ENABLED=0 go build -o /out/farming-notifications-server ./...
 
 FROM gcr.io/distroless/static-debian12:nonroot
 
-COPY --from=builder /out/osrs-notifier-server /usr/local/bin/osrs-notifier-server
+COPY --from=builder /out/farming-notifications-server /usr/local/bin/farming-notifications-server
 
 EXPOSE 8080
-ENTRYPOINT ["/usr/local/bin/osrs-notifier-server"]
+ENTRYPOINT ["/usr/local/bin/farming-notifications-server"]

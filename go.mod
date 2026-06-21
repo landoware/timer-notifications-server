@@ -1,4 +1,4 @@
-module github.com/landoware/osrs-notifier-server
+module github.com/landoware/farming-notifications-server
 
 go 1.25.5
 

@@ -26,7 +26,7 @@
 |------|---------|
 | dev with hot reload | `air` |
 | build | `go build ./...` |
-| build (no repo litter) | `go build -o "/tmp/opencode/osrs-notifier-server" ./...` |
+| build (no repo litter) | `go build -o "/tmp/opencode/farming-notifications-server" ./...` |
 | test all | `go test ./...` |
 | test single function | `go test -v -run 'TestSchedule' ./...` |
 | format | `gofmt -w .` |
@@ -44,4 +44,4 @@
 - `gameMode` field is optional on requests; defaults to `"standard"`. Leagues/deadman worlds divide standard durations by 5. Non-standard game modes appear as `[leagues]` in the Discord embed title.
 - Error responses include `allowedCropGroups`; keep that contract in sync when adding crop groups.
 - Crop choice `required` flag depends on group: required only if group has >1 crop with differing durations (`cropOptionRequired` in `crops.go`).
-- `go build` without `-o` drops `osrs-notifier-server` binary in the repo root; clean it up after verification builds.
+- `go build` without `-o` drops `farming-notifications-server` binary in the repo root; clean it up after verification builds.
