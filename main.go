@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -153,27 +154,79 @@ func applicationCommands() []*discordgo.ApplicationCommand {
 
 func newInteractionHandler(scheduler *Scheduler) func(*discordgo.Session, *discordgo.InteractionCreate) {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-		if i.Type != discordgo.InteractionApplicationCommand {
-			return
+		switch i.Type {
+		case discordgo.InteractionApplicationCommand:
+			handleApplicationCommand(s, i, scheduler)
+		case discordgo.InteractionMessageComponent:
+			handleMessageComponent(s, i, scheduler)
 		}
-
-		commandName := i.ApplicationCommandData().Name
-		switch commandName {
-		case "initialize":
-			handleInitializeCommand(s, i)
-			return
-		case "testcard":
-			handleTestcardCommand(s, i, scheduler)
-			return
-		}
-
-		cropGroup := CropGroup(commandName)
-		if err := cropGroup.Validate(); err != nil {
-			return
-		}
-
-		handleCropCommand(s, i, scheduler, cropGroup)
 	}
+}
+
+func handleApplicationCommand(s *discordgo.Session, i *discordgo.InteractionCreate, scheduler *Scheduler) {
+	commandName := i.ApplicationCommandData().Name
+	switch commandName {
+	case "initialize":
+		handleInitializeCommand(s, i)
+		return
+	case "testcard":
+		handleTestcardCommand(s, i, scheduler)
+		return
+	}
+
+	cropGroup := CropGroup(commandName)
+	if err := cropGroup.Validate(); err != nil {
+		return
+	}
+
+	handleCropCommand(s, i, scheduler, cropGroup)
+}
+
+func handleMessageComponent(s *discordgo.Session, i *discordgo.InteractionCreate, scheduler *Scheduler) {
+	customID := i.MessageComponentData().CustomID
+	if len(customID) < 11 || customID[:11] != "reschedule:" {
+		return
+	}
+
+	parts := strings.Split(customID, ":")
+	if len(parts) != 3 {
+		return
+	}
+
+	cropGroup := CropGroup(parts[1])
+	cropValue := parts[2]
+
+	if err := cropGroup.Validate(); err != nil {
+		return
+	}
+
+	crop, ok := cropForGroup(cropGroup, cropValue)
+	if !ok {
+		return
+	}
+
+	userID, err := interactionUserID(i)
+	if err != nil {
+		log.Printf("error resolving interaction user for button: %v", err)
+		return
+	}
+
+	minutes := int(crop.Duration / time.Minute)
+	response, err := scheduler.Reschedule(NotificationRequest{
+		UserID:          userID,
+		CropGroup:       cropGroup,
+		NotifyInMinutes: minutes,
+		CropName:        crop.Name,
+		CropValue:       crop.Value,
+	})
+	if err != nil {
+		log.Printf("error rescheduling from button: %v", err)
+		respondToInteraction(s, i, "Failed to queue another notification.", true)
+		return
+	}
+
+	message := fmt.Sprintf("%s will be ready at <t:%d:F>.", crop.Name, response.ScheduledFor.Unix())
+	respondToInteraction(s, i, message, true)
 }
 
 func handleInitializeCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -239,7 +292,11 @@ func handleCropCommand(s *discordgo.Session, i *discordgo.InteractionCreate, sch
 		return
 	}
 
-	message := fmt.Sprintf("%s notification %s for %s at <t:%d:F>.", cropGroup.DisplayName(), response.Status, crop.Name, response.ScheduledFor.Unix())
+	subject := crop.Name
+	if len(data.Options) == 0 {
+		subject = cropGroup.DisplayName()
+	}
+	message := fmt.Sprintf("%s will be ready at <t:%d:F>.", subject, response.ScheduledFor.Unix())
 	respondToInteraction(s, i, message, false)
 }
 
@@ -295,10 +352,23 @@ func handleTestcardCommand(s *discordgo.Session, i *discordgo.InteractionCreate,
 
 	embed := scheduler.buildHarvestEmbed(notification)
 
+	customID := fmt.Sprintf("reschedule:%s:%s", cropGroup, crop.Value)
+
 	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Embeds: []*discordgo.MessageEmbed{embed},
+			Components: []discordgo.MessageComponent{
+				discordgo.ActionsRow{
+					Components: []discordgo.MessageComponent{
+						discordgo.Button{
+							Label:    "Replanted",
+							Style:    discordgo.SuccessButton,
+							CustomID: customID,
+						},
+					},
+				},
+			},
 		},
 	}); err != nil {
 		log.Printf("error responding to testcard interaction: %v", err)

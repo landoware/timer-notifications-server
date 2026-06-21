@@ -18,6 +18,7 @@ type scheduledNotification struct {
 	cropGroup CropGroup
 	cropName  string
 	cropValue string
+	patches   []PatchInfo
 	notifyAt  time.Time
 	timer     *time.Timer
 }
@@ -80,6 +81,7 @@ func (s *Scheduler) Get(userID string, cropGroup CropGroup) (NotificationRespons
 		CropGroup:    notification.cropGroup,
 		ScheduledFor: notification.notifyAt,
 		Status:       "scheduled",
+		Patches:      notification.patches,
 	}, nil
 }
 
@@ -101,6 +103,13 @@ func (s *Scheduler) Cancel(userID string, cropGroup CropGroup) error {
 }
 
 func (s *Scheduler) scheduleLocked(req NotificationRequest, status string) NotificationResponse {
+	if req.CropValue == "" {
+		if crop, ok := defaultCropForGroup(req.CropGroup); ok {
+			req.CropValue = crop.Value
+			req.CropName = crop.Name
+		}
+	}
+
 	notifyAt := time.Now().UTC().Add(time.Duration(req.NotifyInMinutes) * time.Minute)
 	key := notificationKey(req.UserID, req.CropGroup)
 
@@ -109,6 +118,7 @@ func (s *Scheduler) scheduleLocked(req NotificationRequest, status string) Notif
 		cropGroup: req.CropGroup,
 		cropName:  req.CropName,
 		cropValue: req.CropValue,
+		patches:   req.Patches,
 		notifyAt:  notifyAt,
 	}
 
@@ -123,6 +133,7 @@ func (s *Scheduler) scheduleLocked(req NotificationRequest, status string) Notif
 		CropGroup:    req.CropGroup,
 		ScheduledFor: notifyAt,
 		Status:       status,
+		Patches:      req.Patches,
 	}
 }
 
@@ -143,17 +154,39 @@ func (s *Scheduler) fire(key string, userID string, cropGroup CropGroup, notifyA
 
 func (s *Scheduler) buildHarvestEmbed(notification *scheduledNotification) *discordgo.MessageEmbed {
 	embed := &discordgo.MessageEmbed{
-		Title:       "Harvest Ready",
-		Description: fmt.Sprintf("Your %s is ready to harvest", notification.displayCropName()),
-		Color:       0x4CAF50,
+		Title: "Harvest Ready",
+		Color: 0x4CAF50,
 	}
 
-	if crop, ok := cropForGroup(notification.cropGroup, notification.cropValue); ok {
-		thumbnailURL, err := s.thumbnails.ThumbnailURL(crop)
-		if err != nil {
-			log.Printf("failed to fetch wiki thumbnail for %s: %v", crop.Name, err)
-		} else if thumbnailURL != "" {
-			embed.Thumbnail = &discordgo.MessageEmbedThumbnail{URL: thumbnailURL}
+	if len(notification.patches) > 0 {
+		desc := fmt.Sprintf("Your %s are ready:", notification.cropGroup.DisplayNamePlural())
+		for _, p := range notification.patches {
+			cropDisplay := p.Crop
+			if crop, ok := cropForGroup(notification.cropGroup, p.Crop); ok {
+				cropDisplay = crop.Name
+			}
+			desc += fmt.Sprintf("\n- %s at %s", cropDisplay, p.Location)
+		}
+		embed.Description = desc
+
+		if crop, ok := cropForGroup(notification.cropGroup, notification.patches[0].Crop); ok {
+			thumbnailURL, err := s.thumbnails.ThumbnailURL(crop)
+			if err != nil {
+				log.Printf("failed to fetch wiki thumbnail for %s: %v", crop.Name, err)
+			} else if thumbnailURL != "" {
+				embed.Thumbnail = &discordgo.MessageEmbedThumbnail{URL: thumbnailURL}
+			}
+		}
+	} else {
+		embed.Description = fmt.Sprintf("Your %s is ready to harvest", notification.displayCropName())
+
+		if crop, ok := cropForGroup(notification.cropGroup, notification.cropValue); ok {
+			thumbnailURL, err := s.thumbnails.ThumbnailURL(crop)
+			if err != nil {
+				log.Printf("failed to fetch wiki thumbnail for %s: %v", crop.Name, err)
+			} else if thumbnailURL != "" {
+				embed.Thumbnail = &discordgo.MessageEmbedThumbnail{URL: thumbnailURL}
+			}
 		}
 	}
 
@@ -166,7 +199,27 @@ func (s *Scheduler) sendHarvestReadyDM(notification *scheduledNotification) erro
 		return fmt.Errorf("create DM channel: %w", err)
 	}
 
-	if _, err := s.discord.ChannelMessageSendEmbed(channel.ID, s.buildHarvestEmbed(notification)); err != nil {
+	cropValue := notification.cropValue
+	if cropValue == "" && len(notification.patches) > 0 {
+		cropValue = notification.patches[0].Crop
+	}
+
+	customID := fmt.Sprintf("reschedule:%s:%s", notification.cropGroup, cropValue)
+	_, err = s.discord.ChannelMessageSendComplex(channel.ID, &discordgo.MessageSend{
+		Embeds: []*discordgo.MessageEmbed{s.buildHarvestEmbed(notification)},
+		Components: []discordgo.MessageComponent{
+			discordgo.ActionsRow{
+				Components: []discordgo.MessageComponent{
+					discordgo.Button{
+						Label:    "I replanted",
+						Style:    discordgo.SuccessButton,
+						CustomID: customID,
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
 		return fmt.Errorf("send embed DM: %w", err)
 	}
 

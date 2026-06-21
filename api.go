@@ -163,6 +163,12 @@ func decodeNotificationRequest(r *http.Request) (NotificationRequest, error) {
 		}
 	}
 
+	for _, patch := range req.Patches {
+		if !patch.Location.Validate() {
+			return NotificationRequest{}, fmt.Errorf("unknown patch location %q", patch.Location)
+		}
+	}
+
 	return req, nil
 }
 
